@@ -62,24 +62,27 @@ def seq_cls_convert_examples_to_features(args, examples, tokenizer, max_length, 
     output_mode = seq_cls_output_modes[task]
     logger.info("Using output mode {} for task {}".format(output_mode, task))
 
-    label_map = {label: i for i, label in enumerate(label_list)}
-
+    label_map = {i: label for i, label in enumerate(label_list)}
+    
     def label_from_example(example):
         if output_mode == "classification":
-            return label_map[example.label]
+            return example.label #label_map[int(example.label)]
         elif output_mode == "regression":
             return float(example.label)
         raise KeyError(output_mode)
 
     labels = [label_from_example(example) for example in examples]
-
-    batch_encoding = tokenizer.batch_encode_plus(
-        [(example.text_a, example.text_b) for example in examples],
-        max_length=max_length,
-        padding="max_length",
-        add_special_tokens=True,
-        truncation=True,
-    )
+    
+    try:
+      batch_encoding = tokenizer.batch_encode_plus(
+          [(example.text_a, example.text_b) for example in examples],
+          max_length=max_length,
+          padding="max_length",
+          add_special_tokens=True,
+          truncation=True,
+      )
+    except:
+      print("here")
 
     features = []
     for i in range(len(examples)):
@@ -366,7 +369,7 @@ class HateSpeechProcessor(object):
         self.args = args
 
     def get_labels(self):
-        return ["none", "offensive", "hate"]
+        return ["none", "hate"]
 
     @classmethod
     def _read_file(cls, input_file):
@@ -377,17 +380,22 @@ class HateSpeechProcessor(object):
                 lines.append(line.strip())
             return lines
 
+  
     def _create_examples(self, lines, set_type):
         """Creates examples for the training and dev sets."""
         examples = []
         for (i, line) in enumerate(lines[1:]):
             line = line.split("\t")
             guid = "%s-%s" % (set_type, i)
-            text_a = line[1]
-            label = line[3]
-            if i % 1000 == 0:
-                logger.info(line)
-            examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+            text_a = line[0]
+            try:
+              label = int(line[1])
+              if i % 1000 == 0:
+                  logger.info(line)
+              examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+            except:
+              if i <= 100:
+                print(line)
         return examples
 
     def get_examples(self, mode):
@@ -418,7 +426,7 @@ seq_cls_processors = {
     "hate-speech": HateSpeechProcessor,
 }
 
-seq_cls_tasks_num_labels = {"kornli": 3, "nsmc": 2, "paws": 2, "korsts": 1, "question-pair": 2, "hate-speech": 3}
+seq_cls_tasks_num_labels = {"kornli": 3, "nsmc": 2, "paws": 2, "korsts": 1, "question-pair": 2, "hate-speech": 2}
 
 seq_cls_output_modes = {
     "kornli": "classification",
